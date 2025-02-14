@@ -1,0 +1,5 @@
+{
+  "jwtPrivateKey": "APP_114BK_JWTPRIVATEKEY",
+  "db": "POSTGRES_CON_STR",
+  "allowedOrigins": "APP_114BK_ALLOWED_ORIGIN"
+}

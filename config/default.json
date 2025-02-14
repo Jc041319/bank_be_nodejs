@@ -1,0 +1,5 @@
+{
+  "jwtPrivateKey": "APP_114BK_JWTPRIVATEKEY",
+  "db": "postgresql://postgres:NcJZYtlWJGLbaDCiNNqKISGlyMuSxNYR@monorail.proxy.rlwy.net:35114/railway",
+  "allowedOrigins": "http://localhost:5173"
+}
