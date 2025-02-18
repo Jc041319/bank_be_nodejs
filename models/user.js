@@ -3,11 +3,14 @@ const client = require('../startup/db');
 const winston = require('winston');
 
 // Create a new user
-async function createUser(name, email, password, username) {
+async function createUser(name, email, password, username, isconfirm, contractor_number) {
   const query = {
-    text: 'INSERT INTO users(name, email, password, username) VALUES($1, $2, $3, $4) RETURNING *',
-    values: [name, email, password, username],
+    text: 'INSERT INTO users(name, email, password, username, isconfirm, contractornumber) VALUES($1, $2, $3, $4, $5, $6) RETURNING *',
+    values: [name, email, password, username, isconfirm, contractor_number],
   };
+
+
+
 
   try {
     const res = await client.query(query);
@@ -111,6 +114,20 @@ async function updatePassword(id, password) {
   }
 }
 
+async function updateUserConfirmation(id, isconfirm) {
+  const query = {
+    text: 'UPDATE users SET isconfirm = $1 WHERE id = $2 RETURNING *',
+    values: [isconfirm, id],
+  };
+
+  try {
+    const res = await client.query(query);
+    winston.info('User updated:', res.rows[0]);
+  } catch (err) {
+    winston.error('Error updating user:', err);
+  }
+}
+
 
 module.exports = {
   createUser,
@@ -120,4 +137,5 @@ module.exports = {
   deleteUser,
   getUserByUsername,
   updatePassword,
+  updateUserConfirmation,
 };
