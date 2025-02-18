@@ -222,6 +222,45 @@ router.post('/confirm', async (req, res) => {
     }
 });
 
+
+
+router.post('/resend-confirmation-code', async (req, res) => {
+    const { username } = req.body;
+
+    const { error } = validateUsername(req.body);
+    if (error) return res.status(400).json({ message: 'Validation Error', error: error.details[0].message });
+
+
+    let user = await getUserByUsername(username);
+    if (!user) return res.status(400).json({ message: 'Username not exist!', error: "Username not exist!" });
+
+
+    const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+
+    const cognitoUser = new AmazonCognitoIdentity.CognitoUser({
+        Username: username,
+        Pool: userPool,
+    });
+
+    try {
+        const result = await new Promise((resolve, reject) => {
+            cognitoUser.resendConfirmationCode((err, data) => {
+                if (err) reject(err);
+                resolve(data);
+            });
+        });
+
+        winston.info('User sent new code successfully:', result);
+
+        res.status(200).json({ message: 'User sent new code', data: result });
+    } catch (error) {
+        winston.error('Error confirming registration:', error);
+        res.status(400).json({ message: 'Error confirming registration', error: error.message });
+    }
+});
+
+
+
 router.post('/refresh-token', async (req, res) => {
     const { refreshToken, username } = req.body;
 
