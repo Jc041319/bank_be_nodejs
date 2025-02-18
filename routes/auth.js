@@ -9,7 +9,7 @@ const AWS = require('aws-sdk');
 const AmazonCognitoIdentity = require('amazon-cognito-identity-js');
 const jwt_decode = require('jwt-decode');
 const jwt = require('jsonwebtoken');
-const { createUser, getUsers, getUserByEmail, updateUser, deleteUser, getUserByUsername, updatePassword } = require('../models/user');
+const { createUser, getUsers, getUserByEmail, updateUser, deleteUser, getUserByUsername, updatePassword, updateUserConfirmation } = require('../models/user');
 
 dotenv.config();
 
@@ -30,15 +30,24 @@ const poolData = {
 
 
 router.post('/login', async (req, res) => {
-    const { username, password } = req.body;
+    const { userid, username, password } = req.body;
 
-    const { error } = validateLogin(req.body);
-    if (error) return res.status(400).json({ message: 'Validation Error', error: error.details[0].message });
+    if (userid) {
+        console.log("validateLoginWithID");
+        const { error } = validateLoginWithID(req.body);
+        if (error) return res.status(400).json({ message: 'Validation Error', error: error.details[0].message });
+    } else {
+        console.log("validateLogin");
+        const { error } = validateLogin(req.body);
+        if (error) return res.status(400).json({ message: 'Validation Error', error: error.details[0].message });
+    }
+
 
 
     let user = await getUserByUsername(username);
     if (!user) return res.status(400).json({ message: 'Username not exist', error: "Username not exist" });
 
+    if (!user.isconfirm) return res.status(400).json({ message: 'User is nor confirmed prior authentication', error: "User is nor confirmed prior authentication" });
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) return res.status(400).json({ message: 'Invalid Password', error: "Invalid Password" });
@@ -62,6 +71,31 @@ router.post('/login', async (req, res) => {
             cognitoUser.authenticateUser(authenticationDetails, {
                 onSuccess: (data) => resolve(data),
                 onFailure: (err) => reject(err),
+                // onSuccess: (result) => {
+                //     // Successful login
+                //     console.log('Access Token: ' + result.getAccessToken().getJwtToken());
+                //     res.json({
+                //         message: 'Login successful',
+                //         accessToken: result.getAccessToken().getJwtToken(),
+                //     });
+                // },
+                // onFailure: (err) => {
+                //     // If authentication failed
+                //     console.error(err);
+                //     res.status(401).json({ message: 'Authentication failed', error: err });
+                // },
+                // mfaRequired: (challengeName, challengeParameters) => {
+                //     // Handle MFA challenge
+                //     console.log('MFA required: ', challengeName);
+
+                //     if (challengeName === 'SMS_MFA' || challengeName === 'SOFTWARE_TOKEN_MFA') {
+                //         res.status(403).json({
+                //             message: 'MFA required',
+                //             challengeName,
+                //             challengeParameters,
+                //         });
+                //     }
+                // },
             });
         });
 
@@ -70,7 +104,6 @@ router.post('/login', async (req, res) => {
         const refreshToken = authResult.getRefreshToken().getToken();
 
         winston.info(authResult);
-        // res.status(200).json({ message: 'Login successful', data: authResult });
         res.status(200).json({
             message: 'Login successful',
             accessToken: accessToken,
@@ -89,7 +122,8 @@ router.post('/signup', async (req, res) => {
     const { error } = validate(req.body);
     if (error) return res.status(400).json({ message: 'Validation Error', error: error.details[0].message });
 
-    const { username, name, given_name, family_name, phone_number, email, password } = req.body;
+    // const { username, name, given_name, family_name, phone_number, email, password } = req.body;
+    const { username, given_name, family_name, phone_number, email, password } = req.body;
 
     let user = await getUserByEmail(email);
     if (user) return res.status(400).json({ message: 'Invalid email or password', error: "Invalid email or password" });
@@ -131,7 +165,11 @@ router.post('/signup', async (req, res) => {
         });
 
 
-        const result = await createUser(name, email, hashedPassword, username);
+        const name = given_name + " " + family_name;
+        const isConfirm = false;
+        const contractor_number = Math.floor(Date.now() / 1000);
+
+        const result = await createUser(name, email, hashedPassword, username, isConfirm, contractor_number);
         winston.info('User created successfully:', result.rows[0]);
         res.status(201).send(_.pick(result.rows[0], ['id', 'name', 'email', 'username']));
 
@@ -171,6 +209,12 @@ router.post('/confirm', async (req, res) => {
                 resolve(data);
             });
         });
+
+        const isConfirm = true;
+
+        const dbResult = await updateUserConfirmation(user.id, isConfirm);
+        winston.info('User changed isConfirm value successfully:', dbResult);
+
         res.status(200).json({ message: 'User confirmed successfully', data: result });
     } catch (error) {
         winston.error('Error confirming registration:', error);
@@ -394,7 +438,7 @@ router.get('/check-token-validity', async (req, res) => {
 const validate = data => {
     const schema = Joi.object({
         username: Joi.string().min(5).max(255).required(),
-        name: Joi.string().min(5).max(255).required(),
+        // name: Joi.string().min(5).max(255).required(),
         email: Joi.string().min(5).max(255).required().email(),
         password: Joi.string().min(5).max(255).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
             'password').required(),
@@ -416,6 +460,16 @@ const validateConfirmationCode = data => {
 
 const validateLogin = data => {
     const schema = Joi.object({
+        username: Joi.string().min(5).max(255).required(),
+        password: Joi.string().min(5).max(255).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+            'password').required(),
+    });
+    return schema.validate(data);
+};
+
+const validateLoginWithID = data => {
+    const schema = Joi.object({
+        userid: Joi.string().min(5).max(255).required(),
         username: Joi.string().min(5).max(255).required(),
         password: Joi.string().min(5).max(255).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
             'password').required(),
