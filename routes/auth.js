@@ -479,7 +479,7 @@ const validate = data => {
         username: Joi.string().min(5).max(255).required(),
         // name: Joi.string().min(5).max(255).required(),
         email: Joi.string().min(5).max(255).required().email(),
-        password: Joi.string().min(5).max(255).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+        password: Joi.string().min(8).max(255).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
             'password').required(),
         phone_number: Joi.string().min(5).max(255).required(),
         given_name: Joi.string().min(5).max(255).required(),
@@ -500,7 +500,7 @@ const validateConfirmationCode = data => {
 const validateLogin = data => {
     const schema = Joi.object({
         username: Joi.string().min(5).max(255).required(),
-        password: Joi.string().min(5).max(255).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+        password: Joi.string().min(8).max(255).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
             'password').required(),
     });
     return schema.validate(data);
@@ -510,7 +510,7 @@ const validateLoginWithID = data => {
     const schema = Joi.object({
         userid: Joi.string().min(5).max(255).required(),
         username: Joi.string().min(5).max(255).required(),
-        password: Joi.string().min(5).max(255).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+        password: Joi.string().min(8).max(255).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
             'password').required(),
     });
     return schema.validate(data);
@@ -535,7 +535,7 @@ const validateConfirmReset = data => {
     const schema = Joi.object({
         username: Joi.string().min(5).max(255).required(),
         confirmationCode: Joi.string().min(6).max(10).required(),
-        newPassword: Joi.string().min(5).max(255).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+        newPassword: Joi.string().min(8).max(255).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
             'password').required(),
     });
     return schema.validate(data);
