@@ -47,6 +47,10 @@ router.post('/login', async (req, res) => {
     let user = await getUserByUsername(username);
     if (!user) return res.status(400).json({ message: 'Username not exist', error: "Username not exist" });
 
+    if (userid) {
+        if (user.contractornumber != userid) return res.status(400).json({ message: 'User ID is incorrect', error: "User ID is incorrect" });
+    }
+
     if (!user.isconfirm) return res.status(400).json({ message: 'User is nor confirmed prior authentication', error: "User is nor confirmed prior authentication" });
 
     const validPassword = await bcrypt.compare(password, user.password);
