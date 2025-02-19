@@ -16,7 +16,7 @@ module.exports = function (app) {
   const allowedOrigins = process.env.APP_114BK_ALLOWED_ORIGIN;
 
   const corsOptions = {
-    origin: allowedOrigins,
+
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'Content-Length', 'X-Requested-With', 'x-auth-token'],
     credentials: true,
