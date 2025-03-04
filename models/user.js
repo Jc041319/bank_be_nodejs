@@ -128,6 +128,44 @@ async function updateUserConfirmation(id, isconfirm) {
   }
 }
 
+async function updateAttemptsAndLocked(id, attempts, isLocked) {
+  const queryTrue = {
+    text: 'UPDATE users SET attempts = $1, locked = TRUE WHERE id = $2 RETURNING *',
+    values: [attempts, id],
+  };
+
+  const queryFalse = {
+    text: 'UPDATE users SET attempts = $1, locked = FALSE WHERE id = $2 RETURNING *',
+    values: [attempts, id],
+  };
+
+  try {
+    const res = await client.query(isLocked ? queryTrue : queryFalse);
+    winston.info('User attempts and locked updated:', res);
+    return res;
+  } catch (err) {
+    winston.error('Error updating user attempts and locked:', err);
+    return err;
+  }
+}
+
+async function resetAttemptsAndLocked(id, attempts) {
+
+  const query = {
+    text: 'UPDATE users SET attempts = $1, locked = FALSE WHERE id = $2 RETURNING *',
+    values: [attempts, id],
+  };
+
+  try {
+    const res = await client.query(query);
+    winston.info('User attempts and locked was reset:', res.rows[0]);
+    return res;
+  } catch (err) {
+    winston.error('Error updating user attempts and locked:', err);
+    return err;
+  }
+}
+
 
 module.exports = {
   createUser,
@@ -138,4 +176,7 @@ module.exports = {
   getUserByUsername,
   updatePassword,
   updateUserConfirmation,
+  updateAttemptsAndLocked,
+  resetAttemptsAndLocked,
+
 };

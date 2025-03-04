@@ -9,7 +9,7 @@ const AWS = require('aws-sdk');
 const AmazonCognitoIdentity = require('amazon-cognito-identity-js');
 const jwt_decode = require('jwt-decode');
 const jwt = require('jsonwebtoken');
-const { createUser, getUsers, getUserByEmail, updateUser, deleteUser, getUserByUsername, updatePassword, updateUserConfirmation } = require('../models/user');
+const { createUser, getUsers, getUserByEmail, updateUser, deleteUser, getUserByUsername, updatePassword, updateUserConfirmation, updateAttemptsAndLocked, resetAttemptsAndLocked } = require('../models/user');
 
 dotenv.config();
 
@@ -53,8 +53,29 @@ router.post('/login', async (req, res) => {
 
     if (!user.isconfirm) return res.status(400).json({ message: 'User is nor confirmed prior authentication', error: "User is nor confirmed prior authentication" });
 
+
+    // check password locked
+    if (user.locked) return res.status(423).json({ message: 'User locked error', error: "User locked error" });
+
+
+
     const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) return res.status(400).json({ message: 'Invalid Password', error: "Invalid Password" });
+    const updatedAttempts = user.attempts + 1;
+    // if (!validPassword) return res.status(400).json({ message: 'Invalid Password', error: "Invalid Password" });
+
+    if (!validPassword) {
+        // database
+        const maxAttempts = process.env.APP_114BK_MAX_PASSWORD_ATTEMPTS;
+        const isLocked = updatedAttempts >= maxAttempts ? true : false;
+
+        const result = await updateAttemptsAndLocked(user.id, updatedAttempts, isLocked);
+        winston.info('User attempts and locked updated successfully:', result);
+
+        return res.status(400).json({ message: 'Invalid Password', error: "Invalid Password" });
+    }
+
+
+
 
 
     const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
@@ -71,10 +92,15 @@ router.post('/login', async (req, res) => {
 
     try {
 
+
+
         const authResult = await new Promise((resolve, reject) => {
             cognitoUser.authenticateUser(authenticationDetails, {
                 onSuccess: (data) => resolve(data),
                 onFailure: (err) => reject(err),
+
+
+
                 // onSuccess: (result) => {
                 //     // Successful login
                 //     console.log('Access Token: ' + result.getAccessToken().getJwtToken());
@@ -106,6 +132,9 @@ router.post('/login', async (req, res) => {
         const accessToken = authResult.getAccessToken().getJwtToken();
         const idToken = authResult.getIdToken().getJwtToken();
         const refreshToken = authResult.getRefreshToken().getToken();
+
+        const result = await updateAttemptsAndLocked(user.id, 0, false);
+        winston.info('User attempts and locked set to default successfully:', result);
 
         winston.info(authResult);
         res.status(200).json({
@@ -475,6 +504,32 @@ router.get('/check-token-validity', async (req, res) => {
         res.status(400).json({ message: 'Error token validity', error: error.message });
     }
 
+});
+
+
+
+router.post('/reset-password-attempts-locked', async (req, res) => {
+    const { username } = req.body;
+
+    const { error } = validateUsername(req.body);
+    if (error) return res.status(400).json({ message: 'Validation Error', error: error.details[0].message });
+
+
+    let user = await getUserByUsername(username);
+    if (!user) return res.status(400).json({ message: 'Username not exist!', error: "Username not exist!" });
+
+
+
+    try {
+
+        const result = await updateAttemptsAndLocked(user.id, 0);
+        winston.info('User resets password attempts and locked successfully:', result);
+
+        res.status(200).json({ message: 'User resets password attempts and locked successfully', data: result });
+    } catch (error) {
+        winston.error('Error in resetting password attempts and locked:', error);
+        res.status(400).json({ message: 'Error in resetting password attempts and locked', error: error.message });
+    }
 });
 
 
