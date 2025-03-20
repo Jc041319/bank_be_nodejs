@@ -619,11 +619,9 @@ router.post("/reset-password-attempts-locked", async (req, res) => {
 
 //SAML - workflow
 router.get("/sso-login", (req, res) => {
-  // const cognitoDomain = process.env.COGNITO_DOMAIN;
-  // const redirectUri = process.env.COGNITO_REDIRECT_URI;
-  // const clientId = process.env.COGNITO_APP_CLIENT_ID;
+  // const loginUrl = `https://ap-southeast-1edoxsdemx.auth.ap-southeast-1.amazoncognito.com/login?response_type=code&client_id=5ols6e05j2f7ah0angckt0h1p&redirect_uri=http://localhost:3000/api/auth/callback`;
 
-  const loginUrl = `https://ap-southeast-1edoxsdemx.auth.ap-southeast-1.amazoncognito.com/login?response_type=code&client_id=5ols6e05j2f7ah0angckt0h1p&redirect_uri=http://localhost:3000/api/auth/callback`;
+  const loginUrl = `${process.env.SAML_COGNITO_DOMAIN}/login?response_type=code&client_id=${process.env.SAML_COGNITO_APP_CLIENT_ID}&redirect_uri=${process.env.SAML_COGNITO_REDIRECT_URI}`;
 
   res.redirect(302, loginUrl);
 });
@@ -639,19 +637,31 @@ router.get("/callback", async (req, res) => {
     }
 
     // Prepare data to send to AWS Cognito for token exchange
+    // const tokenData = new URLSearchParams();
+    // tokenData.append("grant_type", "authorization_code");
+    // tokenData.append("code", authorizationCode);
+    // tokenData.append("redirect_uri", "http://localhost:3000/api/auth/callback");
+    // tokenData.append("client_id", "5ols6e05j2f7ah0angckt0h1p");
+    // tokenData.append(
+    //   "client_secret",
+    //   "hhspnat3lt3c6ebe5iv15d4846p9mungoqbf0is8pnd1b6pt3qu"
+    // );
+
+    const redirectUri = `${process.env.SAML_COGNITO_REDIRECT_URI}`;
+    const clientId = `${process.env.SAML_COGNITO_APP_CLIENT_ID}`;
+    const clientSecret = `${process.env.SAML_COGNITO_APP_CLIENT_SECRET}`; // If using public app client, leave empty.
+
     const tokenData = new URLSearchParams();
     tokenData.append("grant_type", "authorization_code");
     tokenData.append("code", authorizationCode);
-    tokenData.append("redirect_uri", "http://localhost:3000/api/auth/callback");
-    tokenData.append("client_id", "5ols6e05j2f7ah0angckt0h1p");
-    tokenData.append(
-      "client_secret",
-      "hhspnat3lt3c6ebe5iv15d4846p9mungoqbf0is8pnd1b6pt3qu"
-    );
+    tokenData.append("redirect_uri", redirectUri);
+    tokenData.append("client_id", clientId);
+    tokenData.append("client_secret", clientSecret);
 
     // Send a POST request to AWS Cognito token endpoint
     const response = await axios.post(
-      "https://ap-southeast-1edoxsdemx.auth.ap-southeast-1.amazoncognito.com/oauth2/token",
+      // "https://ap-southeast-1edoxsdemx.auth.ap-southeast-1.amazoncognito.com/oauth2/token",
+      `${process.env.SAML_COGNITO_DOMAIN}/oauth2/token`,
       tokenData,
       {
         headers: {
@@ -666,9 +676,12 @@ router.get("/callback", async (req, res) => {
       access_token.substring(7, access_token.length)
     );
 
+    const decodedIDToken = jwt_decode(id_token.substring(7, id_token.length));
+
     // Get expiration time (exp) from the token payload
     const username = decodedToken.username;
 
+    const name = decodedIDToken.name;
     // res.status(200).json({
     //   message: "SSO Authorization successfully",
     //   accessToken: access_token,
@@ -677,7 +690,20 @@ router.get("/callback", async (req, res) => {
     //   username: username,
     // });
 
-    const loginUrl = `http://localhost:5173/callback?username=${username}&idToken=${id_token}&accessToken=${access_token}&refreshToken=${refresh_token}  `;
+    // const loginUrl = `http://localhost:5173/callback?username=${username}&idToken=${id_token}&accessToken=${access_token}&refreshToken=${refresh_token}  `;
+
+    const loginUrl = `${process.env.SAML_APP_114BK_URL_COOKIES}?username=${username}&idToken=${id_token}&accessToken=${access_token}&refreshToken=${refresh_token}  `;
+
+    // const loginUrl = `http://localhost:5173/callback`;
+
+    res.cookie("username", username, { httpOnly: false, secure: true });
+    res.cookie("name", name, { httpOnly: false, secure: true });
+    res.cookie("accessToken", access_token, { httpOnly: false, secure: true });
+    res.cookie("idToken", id_token, { httpOnly: false, secure: true });
+    res.cookie("refreshToken", refresh_token, {
+      httpOnly: false,
+      secure: true,
+    });
 
     res.redirect(302, loginUrl);
   } catch (error) {
